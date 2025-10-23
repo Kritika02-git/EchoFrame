@@ -6,6 +6,8 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../utils/images.dart';
+
 class UnlockableOnboarding extends StatefulWidget {
   const UnlockableOnboarding({super.key});
 
@@ -22,12 +24,29 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
   StreamSubscription? _shakeSubscription;
   late AnimationController _progressController;
   late ConfettiController _confettiController;
+  bool _showTextLogo = false;
+  late AnimationController _morphController;
 
   @override
   void initState() {
     super.initState();
+
+    // Morph animation controller
+    _morphController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    // Delay morph until Hero animation completes
+    Future.delayed(const Duration(milliseconds: 600), () {
+      _morphController.forward();
+      setState(() {
+        _showTextLogo = true;
+      });
+    });
+
     _confettiController =
-        ConfettiController(duration: const Duration(seconds: 2), );
+        ConfettiController(duration: const Duration(seconds: 2));
     _progressController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -42,7 +61,6 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
     });
 
     if (_currentStep == 0) {
-      // Time unlock
       _progressController.reset();
       _progressController.forward();
 
@@ -98,12 +116,12 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
     _shakeSubscription?.cancel();
     _progressController.dispose();
     _confettiController.dispose();
+    _morphController.dispose();
     super.dispose();
   }
 
   Widget _buildStepContent() {
     if (_currentStep == 0) {
-      // 🕒 Time unlock
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -124,7 +142,10 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
                   ),
                 ),
               ).animate(onPlay: (c) => c.repeat(reverse: true))
-                ..scale(begin: const Offset(0.95, 0.95), end: const Offset(1.05, 1.05), duration: 1200.ms),
+                ..scale(
+                    begin: const Offset(0.95, 0.95),
+                    end: const Offset(1.05, 1.05),
+                    duration: 1200.ms),
               AnimatedBuilder(
                 animation: _progressController,
                 builder: (context, child) {
@@ -163,7 +184,6 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
         ],
       );
     } else if (_currentStep == 1) {
-      // 🔓 Shake unlock
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -217,7 +237,6 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
         ],
       );
     } else {
-      // 💌 Final step
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -288,20 +307,118 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
     );
   }
 
+  Widget _buildTopLogo() {
+    if (!_showTextLogo) {
+      return Hero(
+        tag: "appLogo",
+        flightShuttleBuilder: (flightContext, animation,
+            flightDirection, fromHeroContext, toHeroContext) {
+          // Animate rotation
+          final tweenRotate = Tween(begin: 0.0, end: 2 * pi);
+          return RotationTransition(
+            turns: animation.drive(tweenRotate),
+            child: toHeroContext.widget, // use child widget (circular) during flight
+          );
+        },
+        child: Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle, // circular shape here
+          ),
+          padding: const EdgeInsets.all(12),
+          child: ClipOval(
+            child: Image.asset(
+              ImagePath.appLogo,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+
+    } else {
+      return AnimatedBuilder(
+        animation: _morphController,
+        builder: (context, child) {
+          final scale = 1.0 - 0.3 * _morphController.value;
+          final opacity = 1.0 - _morphController.value;
+          return Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Opacity(
+                opacity: opacity,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: ClipOval(
+                      child: Image.asset(
+                        ImagePath.appLogo,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Opacity(
+                opacity: _morphController.value,
+                child: Transform.translate(
+                  offset: Offset(-20 + 20 * _morphController.value, 0),
+                  child: Text(
+                    "EchoFrame",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(
+                          color: Colors.blueAccent.withOpacity(0.6),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FBFF),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(child: _buildStepContent()),
-              _buildButton(),
-            ],
-          ),
+        child: Stack(
+          children: [
+            // Top-left logo / text
+            Positioned(
+              top: 16,
+              left: 16,
+              child: _buildTopLogo(),
+            ),
+
+            // Main onboarding content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: _buildStepContent()),
+                  _buildButton(),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
