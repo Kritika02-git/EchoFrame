@@ -37,13 +37,21 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
       duration: const Duration(milliseconds: 600),
     );
 
-    // Delay morph until Hero animation completes
+ /*   // Delay morph until Hero animation completes
     Future.delayed(const Duration(milliseconds: 600), () {
       _morphController.forward();
       setState(() {
         _showTextLogo = true;
       });
+    });*/
+
+    Future.microtask(() {
+      _morphController.forward();
+      setState(() {
+        _showTextLogo = true;
+      });
     });
+
 
     _confettiController =
         ConfettiController(duration: const Duration(seconds: 2));
@@ -308,34 +316,56 @@ class _UnlockableOnboardingState extends State<UnlockableOnboarding>
   }
 
   Widget _buildTopLogo() {
+    final circularLogo = Container(
+      width: 70,
+      height: 70,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        ImagePath.appLogo,
+        fit: BoxFit.cover,
+      ),
+    );
+
     if (!_showTextLogo) {
       return Hero(
         tag: "appLogo",
         flightShuttleBuilder: (flightContext, animation,
             flightDirection, fromHeroContext, toHeroContext) {
-          // Animate rotation
-          final tweenRotate = Tween(begin: 0.0, end: 2 * pi);
-          return RotationTransition(
-            turns: animation.drive(tweenRotate),
-            child: toHeroContext.widget, // use child widget (circular) during flight
+          final tweenRotate = Tween(begin: 0.0, end: 2 * pi).animate(animation);
+          final tweenScale = Tween(begin: 0.9, end: 1.0).animate(animation);
+          return AnimatedBuilder(
+            animation: animation,
+            builder: (_, __) {
+              return Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..translate(
+                    20 * sin(animation.value * 2 * pi), // circular motion X
+                    20 * cos(animation.value * 2 * pi), // circular motion Y
+                  )
+                  ..rotateZ(tweenRotate.value)
+                  ..scale(tweenScale.value),
+                child: circularLogo,
+              );
+            },
           );
         },
         child: Container(
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            shape: BoxShape.circle, // circular shape here
+            shape: BoxShape.circle,
           ),
-          padding: const EdgeInsets.all(12),
-          child: ClipOval(
-            child: Image.asset(
-              ImagePath.appLogo,
-              fit: BoxFit.cover,
-            ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset(
+            ImagePath.appLogo,
+            fit: BoxFit.cover,
           ),
         ),
       );
-
     } else {
       return AnimatedBuilder(
         animation: _morphController,
